@@ -36,20 +36,19 @@ Standard predictive machine learning focuses on **correlation, not causation**. 
 
 ## 🗓️ Development Roadmap
 
-- [x] **Week 1: Causal Graphing & Setup**
-  - Define Directed Acyclic Graphs (DAGs) in DoWhy identifying Confounders, Treatments, and Outcomes.
-  - Set up environment dependencies and project directory structure.
-- [ ] **Week 2: Double ML Training & Uplift Evaluation**
-  - Train EconML Double ML estimators (using LightGBM and Random Forests as base models).
-  - Render Qini curves and Uplift charts to prove superiority over random rollouts.
-- [ ] **Week 3: Causal Auditing & Prescriptive Optimization**
-  - Run mathematical Refutation Tests in DoWhy to validate causal robustness against unobserved confounders.
-  - Write SciPy optimization scripts to maximize total predicted revenue under strict budget limits.
-- [ ] **Week 4: Production API & Interactive UI**
-  - Wrap the engine in a FastAPI REST endpoint with automated data drift detectors.
-  - Finalize React experimentation UI featuring natural language budget summaries.
+-## 🧹 Data Preprocessing & Pipeline
 
----
+The data preparation phase ingests, cleans, and structures raw observational campaign logs into standardized tabular files for causal modeling:
+
+* **`src/data_preprocessing.py`**: Automated pipeline that loads raw JSON files, handles missing demographic placeholders (e.g., age `118`), formats dates, and safely encodes complex nested lists/dictionaries to enable seamless deduplication.
+* **Processed Datasets (`Data/Processed/`)**:
+  * `cleaned_profile.csv`: Cleaned user demographics.
+  * `cleaned_portfolio.csv`: Standardized offer and promotion specifications.
+  * `cleaned_transcript.csv`: Cleaned customer interaction logs and event histories.
+
+To execute the data cleaning pipeline locally:
+```powershell
+python src/data_preprocessing.py
 
 ## 📂 Repository Structure
 
