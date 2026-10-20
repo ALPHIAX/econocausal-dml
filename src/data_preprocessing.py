@@ -52,8 +52,16 @@ RAW_FILE = ROOT / "Data" / "Raw" / "online_retail_II.xlsx"
 OUTPUT_DIR = ROOT / "Data" / "Processed"
 OUTPUT_FILE = OUTPUT_DIR / "online_retail_cleaned.csv"
 
+# Validate the raw dataset before loading
+if not RAW_FILE.exists():
+    raise FileNotFoundError(
+        f"Online Retail II dataset not found: {RAW_FILE}"
+    )
+
 # Load all worksheets in the Excel workbook
 sheets = pd.read_excel(RAW_FILE, sheet_name=None)
+
+print(f"Number of worksheets loaded: {len(sheets)}")
 
 frames = []
 for sheet_name, frame in sheets.items():
@@ -103,4 +111,3 @@ retail.to_csv(OUTPUT_FILE, index=False)
 
 print("Retail dataset shape:", retail.shape)
 print("Saved to:", OUTPUT_FILE)
-print("--- Online Retail II Preprocessing Complete ---")
