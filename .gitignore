@@ -222,10 +222,6 @@ __marimo__/
 
 @'
 
-# Local datasets and generated data
-Data/Raw/
-Data/Processed/*.csv
-
 # Python virtual environment
 .venv/
 
