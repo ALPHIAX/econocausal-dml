@@ -218,3 +218,17 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+@'
+
+# Local datasets and generated data
+Data/Raw/
+Data/Processed/*.csv
+
+# Python virtual environment
+.venv/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+'@ | Add-Content .gitignore

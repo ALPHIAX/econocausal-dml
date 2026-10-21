@@ -1,0 +1,27 @@
+{
+    "source_file": "online_retail_II.xlsx",
+    "sheets_processed": [
+        "Year 2009-2010",
+        "Year 2010-2011"
+    ],
+    "raw_rows": 1067371,
+    "cleaned_master_rows": 1067371,
+    "positive_sales_rows": 1041670,
+    "rows_excluded_from_sales_subset": 25701,
+    "missing_customer_id": 243007,
+    "missing_description": 4382,
+    "negative_quantity_rows": 22950,
+    "zero_quantity_rows": 0,
+    "zero_price_rows": 6202,
+    "negative_price_rows": 5,
+    "cancellation_invoice_rows": 19494,
+    "exact_duplicate_rows_including_source_sheet": 23430,
+    "positive_sales_line_value": 20972594.567999996,
+    "notes": [
+        "Original workbook is unchanged.",
+        "Cleaned master retains records and adds quality flags.",
+        "Sales subset excludes non-positive quantity or price, cancellation invoices, invalid dates, and missing invoice or stock codes.",
+        "Duplicate records are flagged in the audit, not automatically removed.",
+        "Positive line sales value is not audited net revenue."
+    ]
+}
