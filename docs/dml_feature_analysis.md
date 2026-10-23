@@ -190,3 +190,89 @@ The observed treatment (`unit_price`) and outcome (`quantity`) distributions dif
 ### Limitation
 
 These cross-country differences establish observational association only. They do not prove that country causally determines either price or quantity.
+
+
+## 5. Final Feature Decisions
+
+| Column | DML Role | Decision |
+|---|---|---|
+| `unit_price` | Treatment (T) | Use as treatment |
+| `quantity` | Outcome (Y) | Use as outcome |
+| `stock_code` | Product-level covariate | Retain as X candidate |
+| `invoicedate` | Temporal covariate | Retain as X candidate |
+| `country` | Geographical covariate | Retain as X candidate |
+| `customer_id` | Customer-level covariate | Retain as X candidate |
+| `description` | Text/product description | Exclude from initial model |
+| `invoice_id` | Transaction identifier | Exclude |
+| `source_sheet` | Dataset metadata | Exclude |
+| `total_amount` | Derived variable | Exclude |
+
+### Excluded Variables
+
+#### `description`
+
+`description` is excluded from the initial DML feature set because it is high-dimensional text and overlaps substantially with product identity represented by `stock_code`.
+
+The initial model will therefore use `stock_code` as the primary product-level representation. Text-based representations may be investigated separately if additional information is required.
+
+#### `invoice_id`
+
+`invoice_id` is a transaction identifier rather than a substantive explanatory variable. It is therefore excluded from the X feature set.
+
+#### `source_sheet`
+
+`source_sheet` identifies the source worksheet from which a transaction originated. It is dataset metadata rather than a substantive causal covariate and is excluded from the initial model.
+
+#### `total_amount`
+
+`total_amount` is calculated as:
+
+`quantity × unit_price`
+
+Because it is directly constructed from the treatment (`unit_price`) and outcome (`quantity`), including it as an X variable would introduce target/treatment leakage and is therefore inappropriate for the DML feature set.
+
+### Overall Feature-Selection Principle
+
+The selected X candidates are based on observed variation and their potential relevance to the treatment-outcome relationship. These decisions do not establish that every retained variable is a confirmed causal confounder.
+
+Final inclusion and representation of the X variables will be determined during the DML modeling stage based on causal assumptions, data structure, encoding requirements, and model performance.
+
+## Causal Audit: Assumptions and Limitations
+
+### Causal Assumptions
+
+The DoWhy audit identifies a backdoor adjustment estimand for the effect of `unit_price` on `quantity`, conditional on the selected covariates.
+
+The analysis relies on the following assumptions:
+
+1. **Conditional unconfoundedness**
+   After conditioning on the selected covariates, there are no unobserved variables that simultaneously affect `unit_price` and `quantity`.
+
+2. **Correct causal specification**
+   The selected adjustment variables and their assumed causal relationships are appropriate for the pricing and purchasing process.
+
+3. **Positivity / overlap**
+   Sufficient variation in `unit_price` exists across the relevant covariate patterns to estimate the treatment effect.
+
+4. **Valid outcome and treatment measurements**
+   `unit_price` and `quantity` are assumed to be measured consistently and represent the intended treatment and outcome.
+
+### Refutation Results
+
+The DoWhy causal audit included three robustness checks:
+
+- **Placebo treatment refutation:** the estimated effect changed from approximately `-0.9706` to `-0.0046`, indicating that the effect disappeared when the treatment was randomly permuted.
+- **Random common cause refutation:** the estimate remained approximately `-0.9706` after adding a random common cause.
+- **80% data subset refutation:** the estimate changed from approximately `-0.9706` to `-0.9666`, a change of approximately `0.4%`.
+
+These tests provide robustness evidence for the current causal specification but do not prove that the estimate is free from hidden confounding.
+
+### Limitations
+
+- The analysis uses observational retail data rather than randomized experiments.
+- Unobserved confounding cannot be ruled out from these tests alone.
+- `stock_code` and `country` are currently represented using integer category codes in the DML implementation; these codes are representations rather than inherently ordered numerical variables.
+- The estimated causal effect depends on the selected covariates, preprocessing decisions, and modeling assumptions.
+- The DoWhy audit estimate is a separate audit estimate and does not replace the primary EconML DML estimate.
+
+additional
