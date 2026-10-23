@@ -57,3 +57,25 @@ identified_estimand = causal_model.identify_effect(
 
 print("\nIdentified Estimand:")
 print(identified_estimand)
+
+print("\nRunning placebo treatment refutation...")
+
+estimate = causal_model.estimate_effect(
+    identified_estimand,
+    method_name="backdoor.linear_regression"
+)
+
+print("\nEstimated Effect:")
+print(estimate)
+
+placebo_result = causal_model.refute_estimate(
+    identified_estimand,
+    estimate,
+    method_name="placebo_treatment_refuter",
+    placebo_type="permute",
+    num_simulations=10,
+    random_state=42
+)
+
+print("\nPlacebo Refutation Result:")
+print(placebo_result)
