@@ -1,0 +1,17 @@
+{
+    "source_file": "online_retail_II.xlsx",
+    "sheets_processed": [
+        "online_retail_2009_2010.csv",
+        "online_retail_2010_2011.csv"
+    ],
+    "rows_read": 1067371,
+    "rows_missing_customer_id": 243007,
+    "rows_missing_description": 4382,
+    "exact_duplicate_rows": 12131,
+    "cancellation_invoice_rows": 19494,
+    "negative_quantity_rows": 22950,
+    "zero_price_rows": 6202,
+    "negative_price_rows": 5,
+    "initial_sales_rows": 1041670,
+    "initial_sales_value": 20972594.568
+}

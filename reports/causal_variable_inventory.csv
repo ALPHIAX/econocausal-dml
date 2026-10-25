@@ -1,0 +1,9 @@
+variable,role,available,notes
+unit_price,Treatment,Yes,Observed transaction unit price
+quantity,Outcome,Yes,Units purchased on invoice line
+stockcode,Potential control,Yes,Product identity
+invoicedate,Potential control,Yes,Transaction date and time
+country,Potential control,Yes,Customer country
+customer_id,Potential control,Partially,Customer identifier can be missing
+inventory,Potential confounder,No,Availability and stock levels are not recorded
+promotion,Potential confounder,Not established,Promotion exposure is not explicitly represented

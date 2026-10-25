@@ -218,3 +218,14 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+@'
+
+# Python virtual environment
+.venv/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+'@ | Add-Content .gitignore
+Data/Processed/online_retail_cleaned.csv
