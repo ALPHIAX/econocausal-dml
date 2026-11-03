@@ -275,4 +275,55 @@ These tests provide robustness evidence for the current causal specification but
 - The estimated causal effect depends on the selected covariates, preprocessing decisions, and modeling assumptions.
 - The DoWhy audit estimate is a separate audit estimate and does not replace the primary EconML DML estimate.
 
-additional
+
+## Treatment Support and Overlap Diagnostics
+
+### Objective
+
+A preliminary product-level price-support diagnostic was conducted to examine whether sufficient variation in the treatment variable (`unit_price`) exists across products.
+
+This analysis supports the assessment of the positivity/overlap assumption in the DML causal design.
+
+### Dataset Summary
+
+The diagnostic used `Data/Processed/dml_modeling_data.csv`.
+
+- Total observations analyzed: **790,731**
+- Unique products (`stock_code`): **4,623**
+- Products with multiple observed prices: **3,561**
+- Products with exactly one observed price: **1,062**
+- Transactions belonging to products with multiple observed prices: **766,746 (96.97%)**
+
+### Price Distribution
+
+| Statistic | `unit_price` |
+|---|---:|
+| Mean | 2.9368 |
+| Standard deviation | 4.2980 |
+| Minimum | 0.001 |
+| 25th percentile | 1.25 |
+| Median | 1.95 |
+| 75th percentile | 3.75 |
+| 99th percentile | 12.75 |
+| Maximum | 649.50 |
+
+### Interpretation
+
+The diagnostic indicates that most transactions belong to products with more than one observed price. This provides preliminary evidence of within-product treatment variation.
+
+However, the existence of multiple prices for a product does not establish sufficient conditional overlap across all relevant combinations of product, country, and time.
+
+### Decision
+
+Product-level price support is documented as a preliminary diagnostic. The current DML analysis is not considered to have conclusively established the positivity assumption.
+
+### Limitations
+
+- Multiple observed prices do not guarantee comparable treatment support across covariate patterns.
+- The diagnostic does not estimate conditional propensity or generalized propensity scores.
+- Extreme price observations require further investigation; they have not been automatically removed or clipped.
+- Further overlap analysis should examine treatment support across relevant covariate groups before stronger causal claims are made.
+
+**Output artifact:** `Data/Processed/product_price_support.csv`
+
+**Diagnostic script:** `src/dml_overlap_diagnostics.py`
