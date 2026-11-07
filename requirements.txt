@@ -1,7 +1,29 @@
+# Data Processing
 pandas
 numpy
+openpyxl
+
+# Visualization
 matplotlib
 seaborn
-openpyxl
+plotly
+
+# Jupyter
 jupyter
 ipykernel
+
+# Machine Learning
+scikit-learn==1.9.1
+lightgbm==4.7.0
+
+# Causal Inference
+econml==0.17.0
+dowhy==0.14
+
+# Optimization
+scipy
+cvxpy
+
+# Backend
+fastapi
+uvicorn

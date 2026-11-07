@@ -1,8 +1,12 @@
 import pandas as pd
 import numpy as np
 
-INPUT_PATH = "Data/Processed/dml_modeling_data.csv"
-OUTPUT_PATH = "Data/Processed/product_price_support.csv"
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+INPUT_PATH = ROOT / "Data" / "Processed" / "cleaned_online_retail_dml.csv"
+OUTPUT_PATH = ROOT / "Data" / "Processed" / "product_price_support.csv"
 
 df = pd.read_csv(INPUT_PATH)
 

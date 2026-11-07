@@ -1,7 +1,12 @@
 import pandas as pd
 from dowhy import CausalModel
+import numpy as np
 
-DATA_PATH = "Data/Processed/dml_modeling_data.csv"
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+DATA_PATH = ROOT / "Data" / "Processed" / "cleaned_online_retail_dml.csv"
 
 df = pd.read_csv(DATA_PATH)
 
@@ -15,15 +20,14 @@ df["month"] = df["invoicedate"].dt.month
 df["dayofweek"] = df["invoicedate"].dt.dayofweek
 df["hour"] = df["invoicedate"].dt.hour
 
-df["month_sin"] = __import__("numpy").sin(2 * __import__("numpy").pi * df["month"] / 12)
-df["month_cos"] = __import__("numpy").cos(2 * __import__("numpy").pi * df["month"] / 12)
+df["month_sin"] = np.sin(2 * np.pi * df["month"] / 12)
+df["month_cos"] = np.cos(2 * np.pi * df["month"] / 12)
 
-df["dow_sin"] = __import__("numpy").sin(2 * __import__("numpy").pi * df["dayofweek"] / 7)
-df["dow_cos"] = __import__("numpy").cos(2 * __import__("numpy").pi * df["dayofweek"] / 7)
+df["dow_sin"] = np.sin(2 * np.pi * df["dayofweek"] / 7)
+df["dow_cos"] = np.cos(2 * np.pi * df["dayofweek"] / 7)
 
-df["hour_sin"] = __import__("numpy").sin(2 * __import__("numpy").pi * df["hour"] / 24)
-df["hour_cos"] = __import__("numpy").cos(2 * __import__("numpy").pi * df["hour"] / 24)
-
+df["hour_sin"] = np.sin(2 * np.pi * df["hour"] / 24)
+df["hour_cos"] = np.cos(2 * np.pi * df["hour"] / 24)
 X = [
     "stock_code",
     "country",
@@ -105,11 +109,27 @@ subset_result = causal_model.refute_estimate(
 
 print("\nData Subset Refutation Result:")
 print(subset_result)
-
 print("\n=== Causal Audit Summary ===")
 print(f"DoWhy estimated effect: {estimate.value:.6f}")
-print("Placebo refutation: effect moved close to zero")
-print("Random common cause: effect remained stable")
-print("80% subset refutation: effect remained stable")
-print("Conclusion: causal estimate passed the tested robustness checks.")
-print("Note: These refutation tests do not prove absence of hidden confounding.")
+
+print("Placebo refutation:")
+print(placebo_refutation)
+
+print("Random common cause refutation:")
+print(random_common_cause_refutation)
+
+print("Data subset refutation:")
+print(subset_refutation)
+
+print("\nConclusion:")
+print(
+    "Placebo and random common cause checks did not indicate "
+    "significant instability. However, the subset refutation "
+    "requires further investigation. The causal estimate is "
+    "not yet considered fully robust."
+)
+
+print(
+    "Note: Refutation tests cannot establish the absence of "
+    "unobserved confounding or guarantee causal identification."
+)
