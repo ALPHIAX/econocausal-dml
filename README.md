@@ -102,7 +102,7 @@ The current DML analysis uses the following variable definitions:
 
 The causal DAG represents product, time, and country as potential common causes of price and quantity. Product and time features are included in the DML effect-modifier matrix, while country is included in the adjustment matrix. The DoWhy audit uses product, country, and temporal features as common causes.
 
-These are provisional observational causal assumptions. The analysis does not establish that all confounders have been measured or that price is free from endogeneity. 
+These are provisional observational causal assumptions. The analysis does not establish that all confounders have been measured or that price is free from endogeneity.
 
 
 **\*\*Data considerations:\*\***
