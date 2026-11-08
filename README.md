@@ -67,40 +67,57 @@ The validity of causal conclusions depends on the research design, data quality,
 
 **Important distinction:** Individual Treatment Effects (ITEs) are generally not directly observable for a single person. Individualized decisions require additional assumptions and careful validation.
 
-## 🗂️ Datasets
+**## 🗂️ Datasets**
 
-The repository includes data preparation work for two different datasets.
+The repository includes data preparation and exploration work for two different datasets.
 
-### 1. Online Retail II
+**### 1. Online Retail II — Selected Primary Dataset**
 
 A historical retail transaction dataset containing invoice identifiers, product codes, descriptions, quantities, invoice dates, prices, customer identifiers, and countries.
 
-| Attribute                  | Details                                    |
-| -------------------------- | ------------------------------------------ |
-| Raw file                   | `Data/Raw/online_retail_II.xlsx`           |
-| Source format              | Excel workbook                             |
-| Worksheets                 | 2009–2010 and 2010–2011                    |
-| Initial combined row count | 1,067,371                                  |
-| Preprocessed output        | `Data/Processed/online_retail_cleaned.csv` |
-| Main use                   | Retail transaction and pricing analysis    |
+| Attribute                  | Details                                      |
+| -------------------------- | -------------------------------------------- |
+| Raw file                   | `Data/Raw/online_retail_II.xlsx`             |
+| Source format              | Excel workbook                               |
+| Worksheets                 | 2009–2010 and 2010–2011                      |
+| Initial combined row count | 1,067,371                                    |
+| Canonical processed output | `Data/Processed/cleaned_online_retail_dml.csv` |
+| Final processed row count  | 793,609                                      |
+| Main use                   | Product-level pricing and quantity analysis |
 
-The preprocessing pipeline combines the available worksheets, standardizes column names, removes exact duplicate rows, converts relevant data types, filters records missing essential transaction fields, and creates transaction-value and data-quality indicators.
+The preprocessing pipeline combines the available worksheets, standardizes column names, removes duplicate records, converts relevant data types, handles missing values, filters invalid transaction records, and prepares the data for causal analysis.
 
-The resulting dataset contains approximately 1.05 million rows. The exact output depends on the preprocessing rules and input data.
+The canonical processed dataset contains 793,609 rows and 10 columns. It serves as the primary input for the Double Machine Learning (DML) pipeline.
 
-**Data considerations:**
+### Causal Research Design
 
-* Missing customer identifiers limit customer-level linkage.
+The current DML analysis uses the following variable definitions:
+
+| Causal role | Dataset column / features | Description |
+|---|---|---|
+| Treatment (T) | `unit_price` | Continuous product price |
+| Outcome (Y) | `quantity` | Transaction-level quantity purchased |
+| Effect modifiers (X) | `stock_code` and temporal features | Product and time characteristics used to model treatment-effect heterogeneity |
+| Adjustment variables (W) | `country` | Country-level features used for confounding adjustment |
+
+The causal DAG represents product, time, and country as potential common causes of price and quantity. Product and time features are included in the DML effect-modifier matrix, while country is included in the adjustment matrix. The DoWhy audit uses product, country, and temporal features as common causes.
+
+These are provisional observational causal assumptions. The analysis does not establish that all confounders have been measured or that price is free from endogeneity. 
+
+
+**\*\*Data considerations:\*\***
+
+* Missing customer identifiers and other essential fields require careful handling.
 * Negative quantities may represent returns or reversals.
 * Cancellation invoice prefixes require careful interpretation.
-* Zero and negative prices should be investigated before analytical exclusions.
+* Extreme quantities and prices require investigation rather than arbitrary removal.
 * Transaction-level price and quantity associations do not, by themselves, establish a causal price effect.
 
-The raw workbook is tracked separately from the generated CSV. The processed CSV is excluded from ordinary Git tracking because of its size and can be regenerated locally.
+The raw workbook is maintained separately from the generated processed datasets. The canonical processed CSV can be regenerated locally using the preprocessing pipeline.
 
-### 2. Starbucks Promotional Dataset
+**### 2. Starbucks Promotional Dataset — Explored Dataset**
 
-The existing preprocessing pipeline also supports the Starbucks-style promotional dataset, consisting of:
+The project also explored a Starbucks-style promotional dataset to investigate customer profiles, promotional offers, and customer interactions, consisting of:
 
 | File              | Description                            |
 | ----------------- | -------------------------------------- |
@@ -108,9 +125,11 @@ The existing preprocessing pipeline also supports the Starbucks-style promotiona
 | `profile.json`    | Customer profile information           |
 | `transcript.json` | Customer events and offer interactions |
 
-The pipeline handles missing demographic placeholders, date conversion, nested data structures, and duplicate records.
+The dataset provided an opportunity to explore promotional analytics, customer behavior, and offer interactions.
 
-These files are separate from Online Retail II. The two datasets have different schemas and should not be merged without a clearly justified analytical design.
+After evaluating both datasets against the project's primary research objective, Online Retail II was selected for the main DML-based dynamic pricing analysis because it provides transaction-level product prices, quantities, and timestamps.
+
+These datasets are separate and have different schemas and analytical objectives. They are not merged into a single training dataset.
 
 ## 🧹 Data Preprocessing
 
@@ -124,8 +143,7 @@ Run it from the repository root:
 python src/data_preprocessing.py
 ```
 
-The current pipeline performs the existing Starbucks preprocessing and the added Online Retail II preprocessing.
-
+The current preprocessing pipeline focuses on Online Retail II, which was selected as the primary dataset for the DML-based dynamic pricing analysis. The Starbucks promotional dataset was also explored during the initial research phase.
 ### Processing workflow
 
 * Load the raw source datasets.
@@ -141,17 +159,15 @@ The current pipeline performs the existing Starbucks preprocessing and the added
 ```text
 Data/
 ├── Raw/
-│   ├── online_retail_II.xlsx
-│   ├── portfolio.json
-│   ├── profile.json
-│   └── transcript.json
+│   └── online_retail_II.xlsx
 └── Processed/
-    ├── cleaned_portfolio.csv
-    ├── cleaned_profile.csv
-    └── cleaned_transcript.csv
+    ├── online_retail_cleaned.csv
+    ├── cleaned_online_retail_dml.csv
+    └── dml_features.csv
 ```
 
 The generated file `online_retail_cleaned.csv` is also written to `Data/Processed/`, but it is intentionally excluded from Git because it exceeds GitHub's standard file-size limit.
+
 
 ## 🏗️ Project Architecture
 
@@ -160,7 +176,7 @@ The intended architecture separates data preparation, causal analysis, and decis
 ```text
                   ┌─────────────────────────┐
                   │       Raw Data          │
-                  │ Retail / Promotions     │
+                  │ │ Online Retail II      │    │
                   └────────────┬────────────┘
                                │
                                ▼
@@ -194,39 +210,48 @@ The intended architecture separates data preparation, causal analysis, and decis
                   └────────────┬────────────┘
                                │
                                ▼
-                  ┌─────────────────────────┐
-                  │ Decision Support        │
-                  │ Optimization / Dashboard│
-                  └─────────────────────────┘
+                  ┌─────────────────────────────┐
+                  │ Decision Support            │
+                  │ │ Planned Optimization / UI││
+                  └─────────────────────────────┘
 ```
 
 ### Planned and supporting modules
 
-| Module                      | Responsibility                             |
-| --------------------------- | ------------------------------------------ |
-| `src/data_preprocessing.py` | Raw-data loading and preprocessing         |
-| `src/causal_dag.py`         | Causal graph definition and assumptions    |
-| `src/dml_engine.py`         | Double Machine Learning estimation         |
-| `src/optimizer.py`          | Budget-constrained decision optimization   |
-| `notebooks/`                | Exploratory analysis and model experiments |
+
+| Module                                     | Responsibility                                      | Status      |
+| ---------------------------------------    | --------------------------------------------------- | ------      |
+| `src/data_preprocessing.py`                | Raw-data loading and preprocessing                  | Implemented |
+| `src/validate_dml_data.py`                 | Processed dataset validation                        | Implemented |
+| `src/dml_features.py`                      | Feature engineering for DML                         | Implemented |
+| `src/causal_dag.py`                        | Causal graph definition and assumptions             | Implemented |
+| `src/train_dml_model.py`                   | Double Machine Learning estimation                  | Implemented |
+| `src/dowhy_causal_audit.py`                | Causal identification and robustness checks         | Implemented |
+| `src/product_price_support_diagnostics.py` | Product-level price variation diagnostics           | Implemented |
+| `src/prepare_qini_data.py`                 | Preparation of CATE-ranking diagnostic data         | Implemented |
+| `src/qini_analysis.py`                     | Exploratory CATE-ranking diagnostic                 | Implemented |
+| Budget optimization                        | Budget-constrained decision optimization            | Planned     |
+| Interactive dashboard                      | Visualization and decision-support interface        | Planned     |
 
 The presence of a planned module in this architecture does not necessarily mean its implementation is complete.
 
 ## 🛠️ Technology Stack
 
-* **Python:** Data preparation and analysis
+* **Python:** Data preparation, causal analysis, and modeling
 * **Pandas / NumPy:** Data manipulation and numerical computation
 * **scikit-learn:** Machine learning estimators and preprocessing
-* **DoWhy:** Causal modeling and identification workflows
-* **EconML:** Machine learning-based treatment-effect estimation
-* **SciPy:** Numerical optimization
-* **React / Plotly.js:** Planned interactive dashboard and visualization layer
+* **LightGBM:** Nuisance-model estimation in the DML pipeline
+* **DoWhy:** Causal modeling, identification, and refutation workflows
+* **EconML:** Double Machine Learning and treatment-effect estimation
+* **SciPy / CVXPY:** Numerical and constrained optimization (planned decision-support work)
+* **Matplotlib / Plotly:** Diagnostics and visualization
+* **React / Plotly.js:** Planned interactive dashboard
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-* Python 3.9 or later, subject to compatibility of the installed dependencies
+* * Python 3.11
 * Git
 * The raw datasets required by the selected preprocessing pipeline
 
@@ -240,8 +265,7 @@ cd econocausal-dml
 ### 2. Switch to the data-preparation branch
 
 ```bash
-git checkout data-prep
-```
+git checkout Anshika_DML
 
 ### 3. Create a virtual environment
 
@@ -261,14 +285,6 @@ Install the project's declared dependencies:
 ```powershell
 python -m pip install -r requirements.txt
 ```
-
-The Excel reader also requires `openpyxl`. If it is not included in `requirements.txt`, install it with:
-
-```powershell
-python -m pip install openpyxl
-```
-
-For reproducible collaboration, record all required packages in `requirements.txt`.
 
 ### 5. Prepare the data
 
@@ -293,9 +309,8 @@ python -c "import pandas as pd; d=pd.read_csv('Data/Processed/online_retail_clea
 * [x] Add the Online Retail II raw workbook.
 * [x] Implement the initial retail preprocessing pipeline.
 * [x] Generate a locally processed transaction dataset.
-* [x] Commit and push the preprocessing code to the `data-prep` branch.
-* [ ] Document data-quality decisions and exclusions.
-* [ ] Add repeatable validation checks.
+* [x] Implement repeatable data-validation checks.
+* [x] Document data-quality decisions and exclusions.
 
 ### Phase 2 — Exploratory Data Analysis
 

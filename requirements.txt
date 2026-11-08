@@ -1,22 +1,21 @@
-# Data Processing
+# Runtime: Python 3.11 (development environment)
+# Install with: python -m pip install -r requirements.txt
+
+# Data processing
 pandas
 numpy
 openpyxl
 
-# Visualization
+# Visualization and diagnostics
 matplotlib
-seaborn
 plotly
+seaborn
 
-# Jupyter
-jupyter
-ipykernel
-
-# Machine Learning
+# Machine learning
 scikit-learn==1.9.1
 lightgbm==4.7.0
 
-# Causal Inference
+# Causal inference
 econml==0.17.0
 dowhy==0.14
 
@@ -24,6 +23,10 @@ dowhy==0.14
 scipy
 cvxpy
 
-# Backend
+# API support
 fastapi
 uvicorn
+
+# Notebook / experimentation support
+jupyter
+ipykernel
