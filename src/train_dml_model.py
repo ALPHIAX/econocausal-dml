@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit, GroupKFold
 from sklearn.preprocessing import OneHotEncoder
 from lightgbm import LGBMRegressor
 from econml.dml import SparseLinearDML
@@ -50,9 +50,17 @@ df = df[
     (df["quantity"] > 0)
 ].copy()
 
+
 # --------------------------------------------------
-# 3. Select products with observed price variation
+# 3. Select eligible non-POST products
 # --------------------------------------------------
+
+df["stock_code"] = df["stock_code"].astype(str).str.strip()
+
+# Exclude postage and handling from merchandise analysis
+df = df[
+    df["stock_code"].str.upper() != "POST"
+].copy()
 
 support = df.groupby("stock_code").agg(
     transactions=("unit_price", "size"),
@@ -73,14 +81,19 @@ selected_products = (
 df = df[df["stock_code"].isin(selected_products)].copy()
 df = df.reset_index(drop=True)
 
+print("\n========== SELECTED COHORT ==========")
 print("Selected products:", df["stock_code"].nunique())
 print("Selected observations:", len(df))
+print("POST present:", (df["stock_code"].str.upper() == "POST").any())
 
-if df["stock_code"].nunique() < 2:
-    raise ValueError("Insufficient eligible product categories.")
+if df["stock_code"].nunique() != 100:
+    raise ValueError("Expected exactly 100 eligible products.")
+
+if (df["stock_code"].str.upper() == "POST").any():
+    raise ValueError("POST must not be included in the analysis.")
 
 # --------------------------------------------------
-# 4. Treatment, outcome and effect modifiers
+# 4. Treatment and outcome
 # --------------------------------------------------
 
 T = df["unit_price"].to_numpy(dtype=np.float64)
@@ -88,15 +101,58 @@ Y = df["quantity"].to_numpy(dtype=np.float64)
 
 dates = df["invoicedate"]
 
-time_features = pd.DataFrame({
-    "year": dates.dt.year.astype(float),
-    "month_sin": np.sin(2 * np.pi * dates.dt.month / 12),
-    "month_cos": np.cos(2 * np.pi * dates.dt.month / 12),
-    "dow_sin": np.sin(2 * np.pi * dates.dt.dayofweek / 7),
-    "dow_cos": np.cos(2 * np.pi * dates.dt.dayofweek / 7),
-    "hour_sin": np.sin(2 * np.pi * dates.dt.hour / 24),
-    "hour_cos": np.cos(2 * np.pi * dates.dt.hour / 24),
-})
+# --------------------------------------------------
+# 5. Base temporal features
+# --------------------------------------------------
+
+year = dates.dt.year.to_numpy(dtype=np.float32)
+
+# Center and scale year for numerical stability
+year_mean = year.mean()
+year_std = year.std()
+
+if year_std == 0:
+    raise ValueError("Year has no variation.")
+
+year_scaled = (year - year_mean) / year_std
+
+month_sin = np.sin(
+    2 * np.pi * dates.dt.month.to_numpy() / 12
+).astype(np.float32)
+
+month_cos = np.cos(
+    2 * np.pi * dates.dt.month.to_numpy() / 12
+).astype(np.float32)
+
+dow_sin = np.sin(
+    2 * np.pi * dates.dt.dayofweek.to_numpy() / 7
+).astype(np.float32)
+
+dow_cos = np.cos(
+    2 * np.pi * dates.dt.dayofweek.to_numpy() / 7
+).astype(np.float32)
+
+hour_sin = np.sin(
+    2 * np.pi * dates.dt.hour.to_numpy() / 24
+).astype(np.float32)
+
+hour_cos = np.cos(
+    2 * np.pi * dates.dt.hour.to_numpy() / 24
+).astype(np.float32)
+
+time_features = np.column_stack([
+    year_scaled,
+    month_sin,
+    month_cos,
+    dow_sin,
+    dow_cos,
+    hour_sin,
+    hour_cos
+]).astype(np.float32)
+
+# --------------------------------------------------
+# 6. Product encoding
+# --------------------------------------------------
 
 product_encoder = OneHotEncoder(
     handle_unknown="ignore",
@@ -108,12 +164,34 @@ product_features = product_encoder.fit_transform(
     df[["stock_code"]].astype(str)
 )
 
+# --------------------------------------------------
+# 7. Product-time interactions
+# --------------------------------------------------
+
+# Product-specific long-term trend
+product_year = product_features * year_scaled[:, None]
+
+# Product-specific seasonal effects
+product_month_sin = product_features * month_sin[:, None]
+
+product_month_cos = product_features * month_cos[:, None]
+
+# --------------------------------------------------
+# 8. Construct final X matrix
+# --------------------------------------------------
+
 X = np.column_stack([
-    time_features.to_numpy(dtype=np.float32),
-    product_features
+    time_features,
+    product_features,
+    product_year,
+    product_month_sin,
+    product_month_cos
 ]).astype(np.float32)
 
-# Country adjustment variables
+# --------------------------------------------------
+# 9. Country adjustment variables (W)
+# --------------------------------------------------
+
 country_encoder = OneHotEncoder(
     handle_unknown="ignore",
     sparse_output=False,
@@ -125,15 +203,43 @@ W = country_encoder.fit_transform(
 )
 
 # --------------------------------------------------
-# 5. Train/test split
+# 10. Feature matrix validation
 # --------------------------------------------------
 
-indices = np.arange(len(df))
+if not np.isfinite(X).all():
+    raise ValueError("Non-finite values detected in X.")
 
-train_idx, test_idx = train_test_split(
-    indices,
+if not np.isfinite(W).all():
+    raise ValueError("Non-finite values detected in W.")
+
+if len(X) != len(df) or len(W) != len(df):
+    raise ValueError("Feature matrix row alignment failed.")
+
+print("\n========== FEATURE MATRIX ==========")
+print("X shape:", X.shape)
+print("W shape:", W.shape)
+print("Product features:", product_features.shape[1])
+print("Product-year interactions:", product_year.shape[1])
+print("Product-month-sin interactions:", product_month_sin.shape[1])
+print("Product-month-cos interactions:", product_month_cos.shape[1])
+print("Temporal features:", time_features.shape[1])
+print("Estimated X memory (MB):", round(X.nbytes / (1024 ** 2), 2))
+
+
+# --------------------------------------------------
+# 5. Invoice-level train/test split
+# --------------------------------------------------
+
+groups = df["invoice_id"].astype(str).to_numpy()
+
+splitter = GroupShuffleSplit(
+    n_splits=1,
     test_size=0.20,
-    random_state=42
+    random_state=RANDOM_STATE
+)
+
+train_idx, test_idx = next(
+    splitter.split(X, Y, groups=groups)
 )
 
 X_train, X_test = X[train_idx], X[test_idx]
@@ -142,10 +248,18 @@ W_train = W[train_idx]
 T_train = T[train_idx]
 Y_train = Y[train_idx]
 
-print("X dimensions:", X.shape)
-print("W dimensions:", W.shape)
+groups_train = groups[train_idx]
+
+train_invoices = set(groups[train_idx])
+test_invoices = set(groups[test_idx])
+
+assert train_invoices.isdisjoint(test_invoices)
+
 print("Training observations:", len(train_idx))
 print("Test observations:", len(test_idx))
+print("Training invoices:", len(train_invoices))
+print("Test invoices:", len(test_invoices))
+print("Invoice overlap:", len(train_invoices & test_invoices))
 
 
 # --------------------------------------------------
@@ -182,7 +296,9 @@ dml = SparseLinearDML(
     model_t=model_t,
     discrete_treatment=False,
     discrete_outcome=False,
-    cv=2,
+    cv=GroupKFold(n_splits=2),
+    max_iter=5000,
+    tol=0.001,
     random_state=RANDOM_STATE,
     n_jobs=-1
 )
@@ -198,7 +314,8 @@ dml.fit(
     Y_train,
     T_train,
     X=X_train,
-    W=W_train
+    W=W_train,
+    groups=groups_train
 )
 
 print("DML training completed.")
