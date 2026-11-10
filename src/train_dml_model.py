@@ -7,7 +7,8 @@ import pandas as pd
 from sklearn.model_selection import GroupShuffleSplit, GroupKFold
 from sklearn.preprocessing import OneHotEncoder
 from lightgbm import LGBMRegressor
-from econml.dml import SparseLinearDML
+from econml.dml import NonParamDML
+from sklearn.linear_model import Ridge
 
 
 # --------------------------------------------------
@@ -165,27 +166,12 @@ product_features = product_encoder.fit_transform(
 )
 
 # --------------------------------------------------
-# 7. Product-time interactions
-# --------------------------------------------------
-
-# Product-specific long-term trend
-product_year = product_features * year_scaled[:, None]
-
-# Product-specific seasonal effects
-product_month_sin = product_features * month_sin[:, None]
-
-product_month_cos = product_features * month_cos[:, None]
-
-# --------------------------------------------------
-# 8. Construct final X matrix
+# 7. Construct final X matrix
 # --------------------------------------------------
 
 X = np.column_stack([
     time_features,
-    product_features,
-    product_year,
-    product_month_sin,
-    product_month_cos
+    product_features
 ]).astype(np.float32)
 
 # --------------------------------------------------
@@ -219,10 +205,8 @@ print("\n========== FEATURE MATRIX ==========")
 print("X shape:", X.shape)
 print("W shape:", W.shape)
 print("Product features:", product_features.shape[1])
-print("Product-year interactions:", product_year.shape[1])
-print("Product-month-sin interactions:", product_month_sin.shape[1])
-print("Product-month-cos interactions:", product_month_cos.shape[1])
 print("Temporal features:", time_features.shape[1])
+print("Total X features:", X.shape[1])
 print("Estimated X memory (MB):", round(X.nbytes / (1024 ** 2), 2))
 
 
@@ -287,20 +271,14 @@ model_t = LGBMRegressor(
 )
 
 
-# --------------------------------------------------
-# 7. Sparse Double Machine Learning
-# --------------------------------------------------
-
-dml = SparseLinearDML(
+dml = NonParamDML(
     model_y=model_y,
     model_t=model_t,
+    model_final=Ridge(alpha=1.0),
     discrete_treatment=False,
     discrete_outcome=False,
     cv=GroupKFold(n_splits=2),
-    max_iter=5000,
-    tol=0.001,
-    random_state=RANDOM_STATE,
-    n_jobs=-1
+    random_state=RANDOM_STATE
 )
 
 
@@ -308,7 +286,7 @@ dml = SparseLinearDML(
 # 8. Fit
 # --------------------------------------------------
 
-print("\nTraining SparseLinearDML...")
+print("\nTraining NonParamDML with Ridge final estimator...")
 
 dml.fit(
     Y_train,
@@ -317,7 +295,6 @@ dml.fit(
     W=W_train,
     groups=groups_train
 )
-
 print("DML training completed.")
 
 

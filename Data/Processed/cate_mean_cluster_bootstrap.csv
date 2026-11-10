@@ -1,0 +1,2 @@
+estimand,observations,invoice_clusters,bootstrap_repetitions,mean_predicted_cate,cluster_bootstrap_se,ci_lower_95,ci_upper_95,random_seed
+Mean predicted CATE in test sample,30486,5894,2000,-56.67095819173549,0.4398387472950747,-57.53246916272438,-55.79491705871554,42

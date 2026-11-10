@@ -1,0 +1,3 @@
+specification,observations,mean_cate,median_cate,positive_estimates,negative_estimates
+Original test predictions,30486,-56.67095819173549,-39.77111576899233,675,29811
+After test-sample p99 trimming,30181,-56.261119753250746,-39.51591107550564,672,29509

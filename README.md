@@ -104,6 +104,86 @@ The causal DAG represents product, time, and country as potential common causes 
 
 These are provisional observational causal assumptions. The analysis does not establish that all confounders have been measured or that price is free from endogeneity.
 
+### Current DML Implementation
+
+The current DML pipeline estimates heterogeneous treatment effects for product prices using the Online Retail II transaction dataset.
+
+**Research question:**
+
+How does a change in product price affect the quantity purchased per transaction, and how does this effect vary across products and time?
+
+#### Variable definitions
+
+| Role | Variable | Description |
+|---|---|---|
+| Treatment (T) | `unit_price` | Continuous product price |
+| Outcome (Y) | `quantity` | Quantity purchased per transaction-product line |
+| Effect modifiers (X) | Product and temporal features | Product indicators and temporal characteristics |
+| Adjustment variables (W) | `country` | One-hot encoded country indicators |
+
+#### Model configuration
+
+| Component | Configuration |
+|---|---|
+| DML estimator | EconML `NonParamDML` |
+| Final-stage estimator | `Ridge(alpha=1.0)` |
+| Outcome nuisance model | LightGBM Regressor |
+| Treatment nuisance model | LightGBM Regressor |
+| Treatment type | Continuous |
+| Cross-fitting | GroupKFold, 2 folds |
+| External validation split | GroupShuffleSplit, 80/20 by invoice |
+| Random state | 42 |
+
+#### Feature construction
+
+- X contains 107 features: 100 product indicators and 7 temporal features.
+- W contains 41 country indicators.
+- Product-specific temporal interaction features were removed in the final simplified specification.
+- Invoice identifiers are used for grouped splitting, not as model features.
+- `total_amount` is excluded because it is derived from price multiplied by quantity.
+
+#### Training results
+
+The completed training run produced:
+
+| Metric | Result |
+|---|---:|
+| Selected products | 100 |
+| Selected observations | 151,378 |
+| Training observations | 120,892 |
+| Test observations | 30,486 |
+| Training invoices | 23,576 |
+| Test invoices | 5,894 |
+| Invoice overlap | 0 |
+| Generated CATE estimates | 30,486 |
+
+#### CATE output
+
+The model saves test-set treatment-effect estimates to:
+
+`Data/Processed/dml_ite_results.csv`
+
+The output contains:
+
+- `invoice_id`
+- `stock_code`
+- `country`
+- `unit_price`
+- `quantity`
+- `estimated_cate`
+
+The generated file contains 30,486 observations, with no missing or non-finite CATE estimates.
+
+The observed mean estimated CATE was -56.67, and the median was -39.77. These estimates are exploratory and should not be interpreted as established causal effects without further identification and robustness assessment.
+
+#### Interpretation and limitations
+
+The current model estimates conditional marginal treatment effects for observed transaction-product lines. It does not estimate purchase probability or total market demand.
+
+The analysis remains subject to potential unobserved confounding, endogenous pricing, limited within-product price variation, and model specification sensitivity. The prediction-sample outlier sensitivity check produced a similar mean CATE (-56.26), but this does not establish robustness to outliers during model training.
+
+The final estimator differs from the earlier SparseLinearDML implementation. Results from the two specifications should not be treated as directly interchangeable.
+
 
 **\*\*Data considerations:\*\***
 
@@ -219,19 +299,26 @@ The intended architecture separates data preparation, causal analysis, and decis
 ### Planned and supporting modules
 
 
-| Module                                     | Responsibility                                      | Status      |
-| ---------------------------------------    | --------------------------------------------------- | ------      |
-| `src/data_preprocessing.py`                | Raw-data loading and preprocessing                  | Implemented |
-| `src/validate_dml_data.py`                 | Processed dataset validation                        | Implemented |
-| `src/dml_features.py`                      | Feature engineering for DML                         | Implemented |
-| `src/causal_dag.py`                        | Causal graph definition and assumptions             | Implemented |
-| `src/train_dml_model.py`                   | Double Machine Learning estimation                  | Implemented |
-| `src/dowhy_causal_audit.py`                | Causal identification and robustness checks         | Implemented |
-| `src/product_price_support_diagnostics.py` | Product-level price variation diagnostics           | Implemented |
-| `src/prepare_qini_data.py`                 | Preparation of CATE-ranking diagnostic data         | Implemented |
-| `src/qini_analysis.py`                     | Exploratory CATE-ranking diagnostic                 | Implemented |
-| Budget optimization                        | Budget-constrained decision optimization            | Planned     |
-| Interactive dashboard                      | Visualization and decision-support interface        | Planned     |
+| Module                                      | Responsibility                                      | Status      |
+|---------------------------------------------|-----------------------------------------------------|-------------|
+| `src/data_preprocessing.py`                 | Raw-data loading and preprocessing                  | Implemented |
+| `src/validate_dml_data.py`                  | Processed dataset validation                        | Implemented |
+| `src/dml_features.py`                       | Feature engineering for DML                         | Implemented |
+| `src/causal_dag.py`                         | Causal graph definition and assumptions             | Implemented |
+| `src/train_dml_model.py`                    | NonParamDML training and CATE estimation            | Implemented |
+| `src/dowhy_causal_audit.py`                 | DoWhy causal audit and refutation tests             | Implemented |
+| `src/product_price_support_diagnostics.py`  | Product-level price variation diagnostics           | Implemented |
+| `src/customer_diagnostics.py`               | Customer-level price variation analysis             | Implemented |
+| `src/nuisance_diagnostics.py`               | Treatment and outcome nuisance-model diagnostics    | Implemented |
+| `src/overlap_diagnostics.py`                | Continuous-treatment overlap diagnostics            | Implemented |
+| `src/product_time_diagnostics.py`           | Product and temporal variation analysis             | Implemented |
+| `src/sample_selection_diagnostics.py`       | Eligible product cohort validation                  | Implemented |
+| `src/stage2_outlier_assessment.py`          | Outlier assessment                                  | Implemented |
+| `src/stage2_price_overlap.py`               | Product-level price-support assessment              | Implemented |
+| `src/prepare_qini_data.py`                  | Preparation of CATE-ranking diagnostic data         | Implemented |
+| `src/qini_analysis.py`                      | Exploratory CATE-ranking diagnostic                 | Implemented |
+| Budget optimization                         | Budget-constrained decision optimization            | Planned     |
+| Interactive dashboard                       | Visualization and decision-support interface        | Planned     |
 
 The presence of a planned module in this architecture does not necessarily mean its implementation is complete.
 
@@ -301,6 +388,47 @@ To verify the retail output:
 ```powershell
 python -c "import pandas as pd; d=pd.read_csv('Data/Processed/online_retail_cleaned.csv'); print('Shape:', d.shape); print(d.head())"
 ```
+### 6. Run the DML pipeline
+
+After generating the canonical processed dataset, execute:
+
+```powershell
+python src/train_dml_model.py
+```
+
+The script performs:
+
+1. Eligible product selection.
+2. Product and temporal feature construction.
+3. Country adjustment-variable encoding.
+4. Invoice-aware training and test splitting.
+5. Grouped cross-fitting.
+6. Double Machine Learning estimation.
+7. CATE prediction and finite-value validation.
+8. CSV export.
+
+**Output:**
+
+```text
+Data/Processed/dml_ite_results.csv
+```
+
+### 7. Run diagnostic scripts
+
+The following scripts provide supporting analysis:
+
+```powershell
+python src/sample_selection_diagnostics.py
+python src/stage2_outlier_assessment.py
+python src/stage2_price_overlap.py
+python src/customer_diagnostics.py
+python src/product_time_diagnostics.py
+python src/overlap_diagnostics.py
+python src/nuisance_diagnostics.py
+```
+
+Run them from the repository root with the project's virtual environment activated.
+
 
 ## 📊 Research and Evaluation Roadmap
 
@@ -328,10 +456,12 @@ python -c "import pandas as pd; d=pd.read_csv('Data/Processed/online_retail_clea
 
 ### Phase 4 — DML Estimation
 
-* [ ] Implement an appropriate DML estimator.
-* [ ] Select and evaluate nuisance models.
-* [ ] Estimate treatment effects with uncertainty intervals.
-* [ ] Conduct sensitivity and robustness checks.
+* [x] Implement an appropriate DML estimator.
+* [x] Select and evaluate nuisance models.
+* [x] Estimate heterogeneous treatment effects.
+* [x] Generate and validate CATE predictions.
+* [x] Conduct initial outlier and price-support diagnostics.
+* [ ] Complete additional model robustness and identification assessment.
 
 ### Phase 5 — Decision Support
 

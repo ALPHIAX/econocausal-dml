@@ -1,0 +1,2 @@
+baseline_alpha,alternative_alpha,n_predictions,baseline_mean,alternative_mean,baseline_median,alternative_median,baseline_std,alternative_std,mean_absolute_difference,prediction_rmse,prediction_correlation,sign_agreement_pct,baseline_negative_pct,alternative_negative_pct
+1.0,10.0,30486,-56.67095819173549,-53.38252344918209,-39.77111576899233,-41.37989246429797,50.09677407869033,40.76348604889632,6.069432190867388,11.234853508004447,0.9930714461920963,99.0356229088762,97.78586892344026,98.75024601456406
