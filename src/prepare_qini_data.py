@@ -1,27 +1,60 @@
+"""Prepare a descriptive CATE-ranking dataset from held-out DML estimates.
+
+This is NOT a Qini/uplift evaluation. The treatment is continuous (unit_price),
+and the available data are observational transaction records. This script only
+prepares model-estimated CATEs for a transparent ranking diagnostic.
+"""
+from pathlib import Path
+
+import numpy as np
 import pandas as pd
 
-INPUT_PATH = "Data/Processed/dml_modeling_data.csv"
-OUTPUT_PATH = "Data/Processed/qini_data.csv"
+ROOT = Path(__file__).resolve().parents[1]
+INPUT_PATH = ROOT / "Data" / "Processed" / "dml_ite_results.csv"
+OUTPUT_PATH = ROOT / "Data" / "Processed" / "cate_ranking_data.csv"
 
-df = pd.read_csv(INPUT_PATH)
+REQUIRED_COLUMNS = {
+    "invoice_id",
+    "stock_code",
+    "unit_price",
+    "quantity",
+    "estimated_cate",
+}
 
-# Low-price treatment proxy:
-# Bottom 25% of observed prices are treated as relatively low-price observations.
-price_threshold = df["unit_price"].quantile(0.25)
 
-df["treatment"] = (df["unit_price"] <= price_threshold).astype(int)
+def main() -> None:
+    if not INPUT_PATH.exists():
+        raise FileNotFoundError(f"Required DML results file not found: {INPUT_PATH}")
 
-qini_df = df[
-    ["unit_price", "quantity", "treatment"]
-].copy()
+    df = pd.read_csv(INPUT_PATH)
+    missing = REQUIRED_COLUMNS.difference(df.columns)
+    if missing:
+        raise ValueError(f"DML results are missing required columns: {sorted(missing)}")
 
-qini_df.to_csv(OUTPUT_PATH, index=False)
+    df = df[list(REQUIRED_COLUMNS)].copy()
+    for column in ["unit_price", "quantity", "estimated_cate"]:
+        df[column] = pd.to_numeric(df[column], errors="coerce")
 
-print("=== Qini Treatment Preparation ===")
-print("Price threshold:", price_threshold)
-print("Total observations:", len(qini_df))
-print("Treated observations:", qini_df["treatment"].sum())
-print("Control observations:", (qini_df["treatment"] == 0).sum())
-print("Treatment rate:", qini_df["treatment"].mean())
-print("Saved:", OUTPUT_PATH)
+    before = len(df)
+    df = df.replace([np.inf, -np.inf], np.nan)
+    df = df.dropna(subset=["unit_price", "quantity", "estimated_cate"])
+    df = df[(df["unit_price"] > 0) & (df["quantity"] > 0)].copy()
+
+    if df.empty:
+        raise ValueError("No valid DML estimates remain after validation.")
+
+    df.to_csv(OUTPUT_PATH, index=False)
+
+    print("=== CATE Ranking Data Preparation ===")
+    print("Input rows:", before)
+    print("Valid rows:", len(df))
+    print("Rows removed:", before - len(df))
+    print("Unique products:", df["stock_code"].nunique())
+    print("Mean estimated CATE:", round(df["estimated_cate"].mean(), 6))
+    print("Saved:", OUTPUT_PATH)
+    print("Interpretation: descriptive model-output diagnostic only; not Qini/uplift.")
+
+
+if __name__ == "__main__":
+    main()
 

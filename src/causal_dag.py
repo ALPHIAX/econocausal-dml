@@ -1,14 +1,26 @@
+
 """
-Initial causal DAG for the EconoCausal project.
+Provisional causal DAG for EconoCausal.
 
-Causal question:
-What is the effect of product price on quantity purchased?
+Research question:
+How does product price affect transaction quantity,
+and how does this effect vary across products and time?
 
-The DAG represents the current causal assumptions.
-These assumptions are provisional and must be validated
-using the dataset, EDA, and business context.
+Observed variable mapping:
+- product: stock_code
+- price: unit_price
+- quantity: quantity
+- time: temporal features derived from invoicedate
+- country: country
+
+DML design:
+- Treatment (T): unit_price
+- Outcome (Y): quantity
+- Effect modifiers (X): product and temporal features
+- Adjustment variables (W): country
+
+All causal assumptions require validation.
 """
-
 
 CAUSAL_GRAPH = """
 digraph {
@@ -18,21 +30,24 @@ digraph {
     time -> price;
     time -> quantity;
 
+    country -> price;
+    country -> quantity;
+
     price -> quantity;
 }
 """
 
 
 def get_causal_graph():
-    """Return the current causal graph definition."""
     return CAUSAL_GRAPH
 
 
 if __name__ == "__main__":
-    print("Initial EconoCausal DAG")
-    print("----------------------")
-    print("Treatment: price")
+    print("EconoCausal: Provisional Causal DAG")
+    print("-----------------------------------")
+    print("Treatment: unit_price")
     print("Outcome: quantity")
-    print("Potential confounders: product, time")
+    print("Effect heterogeneity: product and time")
+    print("Potential confounders: product, time, country")
     print("\nCausal graph:")
     print(CAUSAL_GRAPH)
