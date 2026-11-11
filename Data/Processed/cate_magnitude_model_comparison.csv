@@ -1,0 +1,2 @@
+observations,baseline_mean_cate,alternative_mean_cate,baseline_median_cate,alternative_median_cate,prediction_correlation,sign_agreement_pct,mean_absolute_difference
+30486,-56.67095819173549,-53.38252344918209,-39.77111576899233,-41.37989246429797,0.9930714461920963,99.0356229088762,6.069432190867388
